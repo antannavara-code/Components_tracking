@@ -37,6 +37,25 @@ def register(data: UserCreate, db: Session = Depends(get_db)):
     return user
 
 
+@router.post("/demo-login", response_model=Token)
+def demo_login(db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == "admin").first()
+    if not user:
+        user = User(
+            username="admin",
+            password_hash=pwd_context.hash("admin"),
+            role="admin",
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    token = create_access_token({"sub": user.username, "role": user.role})
+    return Token(
+        access_token=token,
+        user=UserResponse.model_validate(user)
+    )
+
+
 @router.post("/login", response_model=Token)
 def login(data: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == data.username).first()

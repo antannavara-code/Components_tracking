@@ -47,6 +47,27 @@ def delete_location(location_id: int, db: Session = Depends(get_db)):
     location = db.query(Location).filter(Location.id == location_id).first()
     if not location:
         raise HTTPException(status_code=404, detail="Location not found")
+    from app.models import Asset, AssetMovement
+    db.query(AssetMovement).filter(AssetMovement.asset_id.in_(
+        db.query(Asset.id).filter(Asset.current_location_id == location_id)
+    )).delete(synchronize_session=False)
+    db.query(Asset).filter(Asset.current_location_id == location_id).update({Asset.current_location_id: None})
     db.delete(location)
     db.commit()
     return {"detail": "Location deleted"}
+
+
+@router.get("/{location_id}/assets")
+def get_location_assets(location_id: int, db: Session = Depends(get_db)):
+    location = db.query(Location).filter(Location.id == location_id).first()
+    if not location:
+        raise HTTPException(status_code=404, detail="Location not found")
+    from app.models import Asset
+    assets = db.query(Asset).filter(Asset.current_location_id == location_id).all()
+    return [
+        {
+            "id": a.id, "asset_id": a.asset_id, "name": a.name,
+            "category": a.category, "status": a.status, "model": a.model
+        }
+        for a in assets
+    ]

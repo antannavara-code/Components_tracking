@@ -50,6 +50,11 @@ def delete_employee(employee_id: int, db: Session = Depends(get_db)):
     employee = db.query(Employee).filter(Employee.id == employee_id).first()
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
+    from app.models import AssetMovement, Asset
+    db.query(AssetMovement).filter(
+        (AssetMovement.from_user_id == employee_id) | (AssetMovement.to_user_id == employee_id)
+    ).update({AssetMovement.from_user_id: None, AssetMovement.to_user_id: None})
+    db.query(Asset).filter(Asset.current_user_id == employee_id).update({Asset.current_user_id: None})
     db.delete(employee)
     db.commit()
     return {"detail": "Employee deleted"}

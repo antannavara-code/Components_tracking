@@ -47,6 +47,27 @@ def delete_project(project_id: int, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    from app.models import Asset, AssetMovement
+    db.query(AssetMovement).filter(AssetMovement.asset_id.in_(
+        db.query(Asset.id).filter(Asset.project_id == project_id)
+    )).delete(synchronize_session=False)
+    db.query(Asset).filter(Asset.project_id == project_id).update({Asset.project_id: None})
     db.delete(project)
     db.commit()
     return {"detail": "Project deleted"}
+
+
+@router.get("/{project_id}/assets")
+def get_project_assets(project_id: int, db: Session = Depends(get_db)):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    from app.models import Asset
+    assets = db.query(Asset).filter(Asset.project_id == project_id).all()
+    return [
+        {
+            "id": a.id, "asset_id": a.asset_id, "name": a.name,
+            "category": a.category, "status": a.status, "model": a.model
+        }
+        for a in assets
+    ]

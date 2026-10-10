@@ -50,6 +50,11 @@ def delete_drone(drone_id: int, db: Session = Depends(get_db)):
     drone = db.query(Drone).filter(Drone.id == drone_id).first()
     if not drone:
         raise HTTPException(status_code=404, detail="Drone not found")
+    from app.models import Asset, AssetMovement
+    db.query(AssetMovement).filter(AssetMovement.asset_id.in_(
+        db.query(Asset.id).filter(Asset.current_drone_id == drone_id)
+    )).delete(synchronize_session=False)
+    db.query(Asset).filter(Asset.current_drone_id == drone_id).update({Asset.current_drone_id: None})
     db.delete(drone)
     db.commit()
     return {"detail": "Drone deleted"}
